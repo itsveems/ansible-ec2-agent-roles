@@ -1,0 +1,5 @@
+---
+# vars file for qualys-cloud-agent
+
+customer_id: "{{ vault_customer_id }}"
+activation_id: "{{ vault_activation_id }}"

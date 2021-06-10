@@ -1,0 +1,25 @@
+---
+galaxy_info:
+  author: itsveems
+  description: Role to install New Relic Infrastructure agent
+  min_ansible_version: 2.1
+  platforms:
+    - name: EL
+      versions:
+        - 6
+        - 7
+    - name: Debian
+      versions:
+        - wheezy
+        - jessie
+        - stretch
+        - buster
+    - name: Ubuntu
+      versions:
+        - precise
+        - trusty
+        - xenial
+  categories:
+    - cloud:ec2
+    - monitoring
+    - system

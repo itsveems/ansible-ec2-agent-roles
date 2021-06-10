@@ -1,0 +1,46 @@
+---
+# defaults file for newrelic-agent
+
+# New Relic Agent Vartiables
+nrinfra_agent_os_name: "{{ ansible_os_family }}"
+nrinfra_agent_os_version: "{{ ansible_lsb.major_release }}"
+nrinfra_agent_os_codename: "{{ ansible_lsb.codename }}"
+
+nrinfra_agent_state: "latest"
+nrinfra_agent_version: "*"
+
+nrinfra_proxy: http://internal-proxy.example.internal:8080
+
+nrinfra_agent_win_file: "newrelic-infra.msi"
+nrinfra_agent_win_version: 1.0.976.0
+nrinfra_agent_win_service: "{{ (nrinfra_agent_win_file | splitext) [0] }}"
+nrinfra_agent_win_service_desc: "This service manages the New Relic Infrastructure Agent"
+nrinfra_agent_s3repo_folder: "media/newrelic/agent"
+
+# New Relic Windows Agent Variables 
+nrinfra_agent_win_uri: "{{ s3repo_nrinfra_agent_key_prefix.win }}/{{ nrinfra_agent_win_file }}"
+nrinfra_agent_win_download_dest: "C:\\Temp"
+nrinfra_agent_win_install_dir: "C:\\Program Files\\New Relic\\newrelic-infra"
+nrinfra_agent_win_file_path: "{{nrinfra_agent_win_install_dir}}\\newrelic-infra.exe"
+
+nrinfra_win_agent_config:
+  license_key: "{{ nrinfra_license_key }}"
+  log_file: "{{ nrinfra_agent_win_install_dir }}\\nr-infra-agent.log"
+  proxy: "{{ nrinfra_proxy }}"
+
+# New Relic Linux Agent Variables 
+nrinfra_agent_linux_redhat_uri: "{{ s3repo_nrinfra_agent_key_prefix.linux }}/{{ nrinfra_agent_os_version }}"
+nrinfra_agent_linux_debian_uri: "{{ s3repo_nrinfra_agent_key_prefix.linux }}"
+nrinfra_agent_linux_uri: "{{ nrinfra_agent_linux_redhat_uri if nrinfra_agent_os_name == 'RedHat' else nrinfra_agent_linux_debian_uri if nrinfra_agent_os_name == 'Debian' }}"
+nrinfra_agent_linux_download_dest: "/tmp"
+
+nrinfra_linux_agent_config:
+  license_key: "{{ nrinfra_license_key }}"
+  log_file: /var/log/nr-infra-agent.log
+  proxy: "{{ nrinfra_proxy }}"
+
+# S3 Bucket Repo Variables
+s3repo_bucket_name: "s3-agent-repo-bucket"
+s3repo_nrinfra_agent_key_prefix:
+  win: "{{ nrinfra_agent_s3repo_folder }}/{{ nrinfra_agent_os_name|lower }}"
+  linux: "{{ nrinfra_agent_s3repo_folder }}/{{ ansible_system|lower }}/{{ nrinfra_agent_os_name|lower }}"

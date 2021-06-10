@@ -1,0 +1,145 @@
+---
+# tasks file for ssm-agent
+
+- import_tasks: windows.yml
+  when: ansible_os_family == 'Windows'
+  tags:
+    - windows_ssm_agent_config 
+
+- import_tasks: linux.yml
+  when: ansible_os_family == 'RedHat' or ansible_os_family == 'Debian'
+  tags:
+    - linux_ssm_agent_install   # Install is assumed as Install and Configure
+
+
+# The code below is segregated into four blocks within a parent block for appropriate tagging and using the ansible keywords like
+# "delegate_to" and "become" for the whole parent block.
+
+# The first block in the parent block gathers facts about the instance and sets fact "instance_id" for later use. 
+# The tasks in this block will run on both windows and linux instance/ami
+
+# The second child block consists of SSM agent tasks to update the agent which will run on both linux and windows instance/ami.
+
+# The third child block consists of SSM agent tasks to configure Windows Update and will run only on windows instance/ami
+
+# The fourth child block consists of SSM agent tasks to run Patch Baseline documents which run on both linux and windows instance/ami.
+
+- name: Run the SSM commands from localhost
+  block:
+    
+    - block:
+        - name: gather facts about the instance or ami
+          ec2_instance_facts:
+            filters:
+              "private-ip-address": "{{ host_ip_address }}"
+          register: ec2_instance_facts
+
+        - name: Set instance_id fact
+          set_fact:
+            instance_id: "{{ ec2_instance_facts.instances.0.instance_id }}"
+      tags:
+        - ssm_agent_get_instance_metadata
+        - ssm_agent_update
+        - windows_ssm_agent_update_config
+        - ssm_agent_scan_patch_baseline
+        - ssm_agent_install_patch_baseline
+        - linux_ssm_agent_install
+    
+    - block:
+        - name: Update SSM Agent
+          command: >
+            aws ssm send-command 
+            --instance-ids "{{ instance_id }}" --document-name 'AWS-UpdateSSMAgent'
+            --timeout-seconds 600
+          register: ssm_update_agent
+              
+        - name: Get status update for SSM Agent install
+          command: >
+            aws ssm list-commands
+            --command-id "{{ ssm_update_agent.stdout | from_json | json_query('Command.CommandId') }}"
+            --instance-id "{{ instance_id }}"
+          register: ssm_update_agent_status
+          until: ssm_update_agent_status.stdout | from_json | json_query('Commands[0].Status') in ['Success','Failed']
+          retries: 60
+          delay: 10
+          failed_when: ssm_update_agent_status.stdout | from_json | json_query('Commands[0].Status') != 'Success'
+      tags:
+        - ssm_agent_update
+
+    # removed until AWS Case 5733225701 (AWS-ConfigureWindowsUpdate document not
+    # correctly disabling autoupdate) is resolved.   
+    # - block:
+    #     - name: Configure Windows Update for SSM agent
+    #       command: >
+    #         aws ssm send-command 
+    #         --instance-ids "{{ instance_id }}" --document-name 'AWS-ConfigureWindowsUpdate'
+    #         --timeout-seconds 600 --parameters '{"updateLevel":["NeverCheckForUpdates"]}'
+    #       register: ssm_win_update_config
+            
+    #     - name: Get status update on Windows Update Configure command for SSM
+    #       command: >
+    #         aws ssm list-commands
+    #         --command-id "{{ ssm_win_update_config.stdout | from_json | json_query('Command.CommandId') }}"
+    #         --instance-id "{{ instance_id }}"
+    #       register: ssm_win_update_config_status
+    #       until: ssm_win_update_config_status.stdout | from_json | json_query('Commands[0].Status') in ['Success','Failed']
+    #       retries: 60
+    #       delay: 10
+    #       failed_when: ssm_win_update_config_status.stdout | from_json | json_query('Commands[0].Status') != 'Success'
+      
+    #   when: ansible_os_family == 'Windows'
+    #   tags:
+    #     - windows_ssm_agent_update_config      
+
+    - block:  
+        - name: Run Patch Baseline with Scan Operation
+          command: >
+            aws ssm send-command 
+            --instance-ids "{{ instance_id }}" --document-name 'AWS-RunPatchBaseline'
+            --timeout-seconds 600 --parameters '{"Operation":["Scan"]}'
+          register: ssm_patch_baseline_scan
+          tags:
+            - ssm_scan_patch_baseline
+
+        - name: Get status update Patch Baseline Scan command
+          command: >
+            aws ssm list-commands
+            --command-id "{{ ssm_patch_baseline_scan.stdout | from_json | json_query('Command.CommandId') }}"
+            --instance-id "{{ instance_id }}"
+          register: ssm_patch_baseline_scan_status
+          until: ssm_patch_baseline_scan_status.stdout | from_json | json_query('Commands[0].Status') in ['Success','Failed']
+          retries: 90
+          delay: 10
+          failed_when: ssm_patch_baseline_scan_status.stdout | from_json | json_query('Commands[0].Status') != 'Success'
+          tags:
+            - ssm_scan_patch_baseline
+
+        - name: Run Patch Baseline with Install Operation
+          command: >
+            aws ssm send-command
+            --instance-ids "{{ instance_id }}" --document-name 'AWS-RunPatchBaseline'
+            --timeout-seconds 600 --parameters '{"Operation":["Install"]}'
+          register: ssm_patch_baseline_install
+          tags:
+            - ssm_install_patch_baseline
+
+        - name: Get status update for Patch Baseline Install command
+          command: >
+            aws ssm list-commands
+            --command-id "{{ ssm_patch_baseline_install.stdout | from_json | json_query('Command.CommandId') }}"
+            --instance-id "{{ instance_id }}"
+          register: ssm_patch_baseline_install_status
+          until: ssm_patch_baseline_install_status.stdout | from_json | json_query('Commands[0].Status') in ['Success','Failed']
+          retries: 60
+          delay: 10
+          failed_when: ssm_patch_baseline_install_status.stdout | from_json | json_query('Commands[0].Status') != 'Success'
+          tags:
+            - ssm_install_patch_baseline
+
+      tags:
+        - linux_ssm_agent_install
+
+  delegate_to: localhost
+  become: no
+  tags:
+    - windows_ssm_agent_config 

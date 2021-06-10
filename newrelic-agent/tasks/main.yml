@@ -1,0 +1,19 @@
+
+# *********************************************************************
+# * Install the New Relic Agent (For both Windows and Linux)
+# *********************************************************************
+---
+- include_vars: vaulted-vars.yml
+  tags:
+    - windows_nragent_install
+    - linux_nragent_install
+
+- import_tasks: install-win.yml
+  when: ansible_os_family == "Windows"
+  tags:
+    - windows_nragent_install
+
+- import_tasks: install-linux.yml
+  when: ansible_os_family == "RedHat" or ansible_os_family == "Debian"
+  tags:
+    - linux_nragent_install

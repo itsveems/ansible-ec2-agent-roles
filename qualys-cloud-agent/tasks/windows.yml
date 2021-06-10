@@ -1,0 +1,25 @@
+---
+
+- name: Download windows agent to 'C:\Temp'.
+  win_shell: Read-S3Object -bucketname "{{ s3repo_bucket_name }}" -Key "{{ qualys_agent_windows_uri }}" -File "{{ qualys_agent_download_dest }}\{{ qualys_agent_bin_name }}"
+  args:
+    creates: "{{ qualys_agent_download_dest }}\\{{ qualys_agent_bin_name }}"
+  tags:
+    - windows_qualys_agent_download
+
+- name: Install Qualys Agent on the machine
+  win_package:
+    path: "{{ qualys_agent_download_dest }}\\{{ qualys_agent_bin_name }}"
+    creates_path: "{{ qualys_agent_windows_install_dir }}"
+    product_id: auto
+    state: present
+    arguments:
+    - CustomerId={{ '{' ~ customer_id ~ '}' }}
+    - ActivationId={{ '{' ~ activation_id ~ '}' }}
+
+- name: Set proxy for Qualys Agent
+  win_command: QualysProxy /u "{{ proxy }}"
+  args:
+    chdir: "{{ qualys_agent_windows_install_dir }}"
+  tags:
+    - windows_qualys_agent_setproxy

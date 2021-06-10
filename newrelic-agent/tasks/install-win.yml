@@ -1,0 +1,35 @@
+---
+- name: Download windows agent to 'C:\Temp'.
+  win_shell: Read-S3Object -bucketname "{{ s3repo_bucket_name }}" -Key "{{ nrinfra_agent_win_uri }}" -File "{{ nrinfra_agent_win_download_dest }}\{{ nrinfra_agent_win_file }}"
+  args:
+    creates: "{{ nrinfra_agent_win_download_dest }}\\{{ nrinfra_agent_win_file }}"
+  tags:
+    - windows_nragent_download
+
+- name: Install agent on windows and wait for it to complete
+  win_package:
+    path: "{{ nrinfra_agent_win_download_dest }}\\{{ nrinfra_agent_win_file }}"
+    state: present
+    creates_path: "{{ nrinfra_agent_win_file_path }}"
+    creates_service: "{{ nrinfra_agent_win_service }}"
+    creates_version: "{{ nrinfra_agent_win_version }}"
+
+- name: Setup windows agent config
+  win_template:
+    src: newrelic-infra-win.yml.j2
+    dest: "{{ nrinfra_agent_win_install_dir }}\\{{ nrinfra_agent_win_service }}.yml"
+  notify: restart newrelic-infra on windows
+  when: nrinfra_agent_state != "absent"
+  tags:
+    - windows_nragent_config
+
+- name: Setup windows agent service
+  win_service: 
+    name: "{{ nrinfra_agent_win_service }}"
+    state: started
+    username: LocalSystem
+    path: "{{ nrinfra_agent_win_file_path }}"
+    description: "{{ nrinfra_agent_win_service_desc }}"
+  when: nrinfra_agent_state != "absent"
+  tags:
+    - windows_nragent_start

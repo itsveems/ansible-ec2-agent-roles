@@ -1,0 +1,53 @@
+---
+
+# Windows SSM agent is installed on AWS instances. The tasks below only configure the SSM agent.
+
+- name: Set proxy for Windows SSM Agent service
+  script: files/proxy-config.ps1
+  tags:
+    - ssm_set_win_proxy
+
+- name: Copy registry proxy settings 
+  win_copy:
+      src: "{{ item }}" 
+      dest: C:\Temp\
+  loop:
+    - files/local_system_proxy.reg
+    - files/hkcu_proxy.reg
+  register: registry_files
+  tags:
+    - ssm_set_win_proxy
+    
+- name: Merge the reg files to set user proxy settings
+  win_regmerge:
+    path: C:\Temp\{{ item.src | basename }}
+  loop: "{{ registry_files.results }}"
+  tags:
+    - ssm_set_win_proxy
+    
+- name: Set IE proxy settings and import them to set system-wide proxy
+  win_command: "{{ item }}"
+  loop: "{{ ie_proxy_settings }}"
+  tags:
+    - ssm_set_win_proxy
+    
+# replaced with force creation of NoAutoUpdate key until AWS Case 5733225701 
+# (AWS-ConfigureWindowsUpdate document not correctly disabling autoupdate) 
+# is resolved.
+
+# - name: Remove the Windows Update reg key for SSM to manage Windows updates
+#   win_regedit:
+#       path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU
+#       state: absent
+#       delete_key: yes
+#   tags:
+#     - ssm_configure_win_update
+
+- name: Force creation of key to disable autoupdate
+  win_regedit:
+      name: NoAutoUpdate
+      path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU
+      type: dword
+      data: 1
+  tags:
+    - ssm_configure_win_update

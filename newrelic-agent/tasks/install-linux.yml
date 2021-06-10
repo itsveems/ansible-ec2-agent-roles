@@ -1,0 +1,72 @@
+---
+
+- name: List the package from S3 bucket 
+  aws_s3:
+    bucket: "{{ s3repo_bucket_name }}"
+    prefix: "{{ nrinfra_agent_linux_uri }}"
+    region: eu-west-2
+    mode: list
+  environment:
+    http_proxy: ""
+    https_proxy: ""
+    no_proxy: 169.254.169.254
+  register: s3_objects
+  tags: 
+    - linux_nragent_download
+
+- name: "Set artifact binary name from fetched object"
+  set_fact:
+    nrinfra_agent_bin: "{{ s3_objects.s3_keys | select ('search', '.+\\.(rpm|deb)$') | list | first | basename }}" 
+  tags: 
+    - linux_nragent_download
+
+- name: Download Linux agent to '/tmp'
+  aws_s3:
+    bucket: "{{ s3repo_bucket_name }}"
+    object: "{{ nrinfra_agent_linux_uri }}/{{ nrinfra_agent_bin }}"
+    dest: "{{ nrinfra_agent_linux_download_dest }}/{{ nrinfra_agent_bin }}"
+    mode: get
+    region: eu-west-2
+  environment:
+    http_proxy: ""
+    https_proxy: ""
+    no_proxy: 169.254.169.254
+  tags: 
+    - linux_nragent_download
+
+- name: Install agent on Redhat Linux
+  yum:
+    name: "{{ nrinfra_agent_linux_download_dest }}/{{ nrinfra_agent_bin }}"
+    state: "{{ nrinfra_agent_state }}"
+  when: nrinfra_agent_os_name|lower == 'redhat'
+
+- name: Install agent on Debian Linux
+  apt:
+    name: "{{ nrinfra_agent_linux_download_dest }}/{{ nrinfra_agent_bin }}"
+    state: "{{ nrinfra_agent_state }}"
+  when: nrinfra_agent_os_name|lower == 'debian'
+
+- name: Setup Linux agent service
+  service: 
+    name: newrelic-infra
+    state: started
+    enabled: yes
+  when: nrinfra_agent_state != "absent"
+  tags:
+    - linux_nragent_start
+
+- name: Setup Linux agent config
+  template:
+    src: newrelic-infra-linux.yml.j2
+    dest: /etc/newrelic-infra.yml
+    mode: 0600
+  notify: restart newrelic-infra on linux
+  when: nrinfra_agent_state != "absent"
+  tags:
+    - linux_nragent_config
+
+- name: Flush Handlers to restart newrelic infra service
+  meta: flush_handlers
+  tags:
+    - linux_nragent_config
+

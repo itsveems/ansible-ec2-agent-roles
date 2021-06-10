@@ -1,0 +1,49 @@
+---
+
+- name: Download Qualys agent to '/tmp'
+  aws_s3:
+    bucket: "{{ s3repo_bucket_name }}"
+    object: "{{ s3repo_qualys_agent_key_prefix.linux }}/{{ qualys_agent_bin_name }}"
+    dest: "{{ qualys_agent_download_dest }}/{{ qualys_agent_bin_name }}"
+    mode: get
+    region: eu-west-2
+    overwrite: different
+  environment:
+    http_proxy: ""
+    https_proxy: ""
+    no_proxy: 169.254.169.254
+  tags:
+    - qualys_agent_linux_download
+
+- name: Install Qualys agent
+  yum:
+    name: "{{ qualys_agent_download_dest }}/{{ qualys_agent_bin_name }}"
+    state: present
+
+- name: Stop the Qualys agent
+  systemd:
+    name: qualys-cloud-agent
+    state: stopped
+
+- name: Create Qualys agent proxy file
+  file:
+    path: "{{ qualys_agent_linux_proxy_file }}"
+    state: touch
+    owner: root
+    group: root
+    mode: 0600
+  tags:
+    - qualys_agent_linux_setproxy
+
+- name: Set proxy for Qualys Agent
+  lineinfile:
+    path: "{{ qualys_agent_linux_proxy_file }}"
+    line: "https_proxy={{ proxy }}"
+  tags:
+    - qualys_agent_linux_setproxy
+
+- name: Activate Qualys Agent
+  command: /usr/local/qualys/cloud-agent/bin/qualys-cloud-agent.sh ActivationId={{ activation_id }} CustomerId={{ customer_id }}
+  tags:
+    - qualys_agent_linux_activate
+

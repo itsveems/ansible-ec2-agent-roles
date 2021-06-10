@@ -1,0 +1,68 @@
+# Linux SSM agent needs to be installed and configured to use proxy
+
+- name: Get CPU architecture
+  command: getconf LONG_BIT
+  register: cpu_arch
+  changed_when: False
+  check_mode: no
+
+- name: Change URL destination for 32bit arch
+  set_fact:
+    uri: '386'
+  when: cpu_arch.stdout == '32'
+
+- name: Download Linux agent to '/tmp'
+  aws_s3:
+    bucket: "{{ s3repo_bucket_name }}"
+    object: "{{ s3repo_ssm_linux_agent_key_prefix }}/{{ uri }}/{{ ssm_agent_linux_bin_name }}"
+    dest: "{{ ssm_agent_linux_download_dest }}/{{ ssm_agent_linux_bin_name }}"
+    mode: get
+    region: eu-west-2
+    overwrite: different
+  environment:
+    http_proxy: ""
+    https_proxy: ""
+    no_proxy: 169.254.169.254
+
+# Main playbook uses become but also using it here so that role can be run and tested independently.
+
+- name: Run the tasks with root privileges
+  block:
+    - name: Install SSM agent for RHEL family 32/64-bit
+      yum:
+        name: "{{ ssm_agent_linux_download_dest }}/{{ ssm_agent_linux_bin_name }}"
+        state: present
+      when: ansible_os_family == 'RedHat'
+
+    - name: Install SSM agent for Debian family 32/64-bit
+      apt:
+        deb: "{{ ssm_agent_linux_download_dest }}/{{ ssm_agent_linux_bin_name }}"
+      when: ansible_os_family == 'Debian'
+
+    - name: Register to service for Debian systems
+      service:
+        name: amazon-ssm-agent
+        enabled: yes
+        state: started
+      when: ansible_os_family == 'Debian'
+
+    - name: Create the directory for override conf file
+      file:
+        path: "{{ ssm_agent_linux_override_file | dirname }}"
+        state: directory
+        owner: root
+        group: root
+
+    - name: Create the override.conf to set the proxy for SSM agent
+      template:
+        src: override.conf.j2
+        dest: "{{ ssm_agent_linux_override_file }}"
+        owner: root
+        group: root
+        mode: '0644'
+      notify: restart amazon-ssm-agent with daemon-reload
+  become: yes
+
+- name: Flush Handlers to restart amazon-ssm-agent service
+  meta: flush_handlers
+

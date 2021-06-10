@@ -1,0 +1,30 @@
+---
+# defaults file for ssm-agent
+
+proxy: internal-proxy.example.internal:8080
+proxy_override: "169.254.169.254;localhost;<local>"
+metadata_url: http://169.254.169.254/latest/meta-data
+uri: amd64
+
+ie_proxy_settings: 
+  - reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyEnable /t REG_DWORD /d 1 /f
+  - reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyServer /t REG_SZ /d "{{ proxy }}" /f
+  - reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyOverride /t REG_SZ /d "{{ proxy_override }}" /f
+  - reg add "HKEY_USERS\S-1-5-18\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyEnable /t REG_DWORD /d 1 /f
+  - reg add "HKEY_USERS\S-1-5-18\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyServer /t REG_SZ /d "{{ proxy }}" /f
+  - reg add "HKEY_USERS\S-1-5-18\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyOverride /t REG_SZ /d "{{ proxy_override }}" /f
+  - netsh winhttp import proxy source =ie
+
+# S3Repo Bucket Variables
+
+s3repo_bucket_name: "s3-agent-repo-bucket"
+s3repo_ssm_linux_agent_key_prefix: "{{ ssm_agent_linux_s3repo_folder }}/{{ ansible_system|lower }}/{{ ansible_os_family|lower }}"
+
+# SSM Agent Linux Variables
+
+ssm_agent_linux_download_dest: "/tmp"
+ssm_agent_linux_rhel_bin_name: "amazon-ssm-agent.rpm"
+ssm_agent_linux_deb_bin_name: "amazon-ssm-agent.deb"
+ssm_agent_linux_bin_name: "{{ ssm_agent_linux_rhel_bin_name if ansible_os_family == 'RedHat' else ssm_agent_linux_deb_bin_name if ansible_os_family == 'Debian' }}"
+ssm_agent_linux_override_file: "/etc/systemd/system/amazon-ssm-agent.service.d/override.conf"
+ssm_agent_linux_s3repo_folder: "media/ssm/agent"

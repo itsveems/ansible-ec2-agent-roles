@@ -1,0 +1,33 @@
+---
+# tasks file for qualys-cloud-agent
+
+- block:
+    - name: gather facts about the instance or ami
+      ec2_instance_facts:
+        filters:
+          "private-ip-address": "{{ host_ip_address }}"
+      delegate_to: localhost
+      become: no
+      register: ec2_instance_facts
+
+    - name: Set lifecycle_tag variable
+      set_fact: 
+        lifecycle_tag: "{{ ec2_instance_facts.instances[0].tags['Lifecycle'] }}"
+
+    - include_vars: vaulted-vars.yml
+
+    - include_vars: vaulted-{{ lifecycle_tag|lower }}-vars.yml
+
+  tags:
+    - windows_qualys_agent_install
+    - linux_qualys_agent_install
+
+- import_tasks: windows.yml
+  when: ansible_os_family == "Windows"
+  tags:
+    - windows_qualys_agent_install
+    
+- import_tasks: linux.yml
+  when: ansible_os_family == "RedHat"
+  tags:
+    - linux_qualys_agent_install

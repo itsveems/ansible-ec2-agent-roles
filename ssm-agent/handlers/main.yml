@@ -1,0 +1,8 @@
+---
+# handlers file for ssm-agent
+
+- name: restart amazon-ssm-agent with daemon-reload
+  systemd:
+    name: amazon-ssm-agent
+    state: restarted
+    daemon_reload: yes

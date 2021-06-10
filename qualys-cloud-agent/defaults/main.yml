@@ -1,0 +1,28 @@
+---
+# defaults file for qualys-cloud-agent
+
+proxy: http://internal-proxy.example.internal:8080
+qualys_agent_s3repo_folder: "media/qualys/agent"
+host_ip_address: "{{ ansible_ip_addresses[0] if ansible_os_family == 'Windows' else ansible_default_ipv4.address if ansible_os_family == 'RedHat' }}"
+
+# Qualys Agent Variables
+
+qualys_agent_bin_name: "{{ 'QualysCloudAgent.exe' if ansible_os_family == 'Windows' else 'qualys-cloud-agent.x86_64.rpm' if ansible_os_family == 'RedHat' }}"
+qualys_agent_download_dest: "{{ 'C:\\Temp' if ansible_os_family == 'Windows' else '/tmp' if ansible_os_family == 'RedHat' }}"
+
+# Qualys Windows Agent variables
+
+qualys_agent_windows_install_dir: "C:\\Program Files (x86)\\Qualys\\QualysAgent"
+qualys_agent_windows_bin_path: "{{qualys_agent_windows_install_dir}}\\{{ qualys_agent_bin_name }}"
+qualys_agent_windows_uri: "{{ s3repo_qualys_agent_key_prefix.windows }}/{{ qualys_agent_bin_name }}"
+
+# Qualys Linux Agent variables
+
+qualys_agent_linux_proxy_file: "/etc/sysconfig/qualys-cloud-agent"
+
+# S3 Repo Variables
+
+s3repo_bucket_name: "s3-agent-repo-bucket"
+s3repo_qualys_agent_key_prefix:
+  windows: "{{ qualys_agent_s3repo_folder }}/{{ ansible_os_family|lower  }}"
+  linux: "{{ qualys_agent_s3repo_folder }}/{{ ansible_system|lower }}/{{ ansible_os_family|lower  }}/{{ ansible_distribution_major_version }}"

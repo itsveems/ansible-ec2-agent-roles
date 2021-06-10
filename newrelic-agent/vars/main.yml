@@ -1,0 +1,4 @@
+---
+# vars file for newrelic-agent
+
+nrinfra_license_key: "{{ vault_nrinfra_license_key }}"
