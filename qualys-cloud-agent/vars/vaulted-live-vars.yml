@@ -1,0 +1,4 @@
+---
+# EXAMPLE ONLY — in production this file is ansible-vault encrypted.
+# Per-lifecycle Qualys activation ID (live).
+vault_activation_id: "66666666-7777-8888-9999-000000000000"

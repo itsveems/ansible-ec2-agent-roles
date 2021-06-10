@@ -7,24 +7,6 @@
   tags:
     - ssm_set_win_proxy
 
-- name: Copy registry proxy settings 
-  win_copy:
-      src: "{{ item }}" 
-      dest: C:\Temp\
-  loop:
-    - files/local_system_proxy.reg
-    - files/hkcu_proxy.reg
-  register: registry_files
-  tags:
-    - ssm_set_win_proxy
-    
-- name: Merge the reg files to set user proxy settings
-  win_regmerge:
-    path: C:\Temp\{{ item.src | basename }}
-  loop: "{{ registry_files.results }}"
-  tags:
-    - ssm_set_win_proxy
-    
 - name: Set IE proxy settings and import them to set system-wide proxy
   win_command: "{{ item }}"
   loop: "{{ ie_proxy_settings }}"

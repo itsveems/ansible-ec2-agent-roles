@@ -1,0 +1,4 @@
+---
+# EXAMPLE ONLY — in production this file is ansible-vault encrypted.
+# Supplies the New Relic Infrastructure licence key referenced by vars/main.yml.
+vault_nrinfra_license_key: "0000000000000000000000000000000000000000"

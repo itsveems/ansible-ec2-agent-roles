@@ -1,0 +1,4 @@
+---
+# EXAMPLE ONLY — in production this file is ansible-vault encrypted.
+# Common Qualys subscription value shared across all lifecycles.
+vault_customer_id: "11111111-2222-3333-4444-555555555555"
